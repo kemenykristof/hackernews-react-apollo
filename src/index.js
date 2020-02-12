@@ -28,7 +28,7 @@ ReactDOM.render(
     <ApolloProvider client={client}>
       <App />
     </ApolloProvider>
-  </BrowserRouter>git ,
+  </BrowserRouter>,
   document.getElementById("root")
 );
 serviceWorker.unregister();
