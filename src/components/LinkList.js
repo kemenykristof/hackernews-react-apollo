@@ -1,7 +1,6 @@
-import React, { Component, Fragment } from "react";
+import React, { Fragment } from "react";
 import Link from "./Link";
-import { Query } from "react-apollo";
-import gql from "graphql-tag";
+import { gql, useQuery } from "@apollo/client";
 import { LINKS_PER_PAGE } from "../constants";
 
 export const FEED_QUERY = gql`
@@ -76,10 +75,10 @@ const NEW_VOTES_SUBSCRIPTION = gql`
   }
 `;
 
-class LinkList extends Component {
-  _updateCacheAfterVote = (store, createVote, linkId) => {
-    const isNewPage = this.props.location.pathname.includes("new");
-    const page = parseInt(this.props.match.params.page, 10);
+function LinkList(props) {
+  const _updateCacheAfterVote = (store, createVote, linkId) => {
+    const isNewPage = props.location.pathname.includes("new");
+    const page = parseInt(props.match.params.page, 10);
 
     const skip = isNewPage ? (page - 1) * LINKS_PER_PAGE : 0;
     const first = isNewPage ? LINKS_PER_PAGE : 100;
@@ -94,13 +93,13 @@ class LinkList extends Component {
     store.writeQuery({ query: FEED_QUERY, data });
   };
 
-  _subscribeToNewVotes = subscribeToMore => {
+  const _subscribeToNewVotes = subscribeToMore => {
     subscribeToMore({
       document: NEW_VOTES_SUBSCRIPTION
     });
   };
 
-  _subscribeToNewLinks = subscribeToMore => {
+  const _subscribeToNewLinks = subscribeToMore => {
     subscribeToMore({
       document: NEW_LINKS_SUBSCRIPTION,
       updateQuery: (prev, { subscriptionData }) => {
@@ -120,9 +119,9 @@ class LinkList extends Component {
     });
   };
 
-  _getQueryVariables = () => {
-    const isNewPage = this.props.location.pathname.includes("new");
-    const page = parseInt(this.props.match.params.page, 10);
+  const _getQueryVariables = () => {
+    const isNewPage = props.location.pathname.includes("new");
+    const page = parseInt(props.match.params.page, 10);
 
     const skip = isNewPage ? (page - 1) * LINKS_PER_PAGE : 0;
     const first = isNewPage ? LINKS_PER_PAGE : 100;
@@ -130,8 +129,8 @@ class LinkList extends Component {
     return { first, skip, orderBy };
   };
 
-  _getLinksToRender = data => {
-    const isNewPage = this.props.location.pathname.includes("new");
+  const _getLinksToRender = data => {
+    const isNewPage = props.location.pathname.includes("new");
     if (isNewPage) {
       return data.feed.links;
     }
@@ -140,64 +139,60 @@ class LinkList extends Component {
     return rankedLinks;
   };
 
-  _nextPage = data => {
-    const page = parseInt(this.props.match.params.page, 10);
+  const _nextPage = data => {
+    const page = parseInt(props.match.params.page, 10);
     if (page <= data.feed.count / LINKS_PER_PAGE) {
       const nextPage = page + 1;
-      this.props.history.push(`/new/${nextPage}`);
+      props.history.push(`/new/${nextPage}`);
     }
   };
 
-  _previousPage = () => {
-    const page = parseInt(this.props.match.params.page, 10);
+  const _previousPage = () => {
+    const page = parseInt(props.match.params.page, 10);
     if (page > 1) {
       const previousPage = page - 1;
-      this.props.history.push(`/new/${previousPage}`);
+      props.history.push(`/new/${previousPage}`);
     }
   };
 
-  render() {
-    return (
-      <Query query={FEED_QUERY} variables={this._getQueryVariables()}>
-        {({ loading, error, data, subscribeToMore }) => {
-          if (loading) return <div>Fetching</div>;
-          if (error) return <div>Error</div>;
+  const { loading, error, data, subscribeToMore } = useQuery(FEED_QUERY, {
+    variables: _getQueryVariables()
+  });
 
-          this._subscribeToNewLinks(subscribeToMore);
-          this._subscribeToNewVotes(subscribeToMore);
+  if (loading) return <div>Fetching</div>;
+  if (error) return <div>Error</div>;
 
-          const linksToRender = this._getLinksToRender(data);
-          const isNewPage = this.props.location.pathname.includes("new");
-          const pageIndex = this.props.match.params.page
-            ? (this.props.match.params.page - 1) * LINKS_PER_PAGE
-            : 0;
+  _subscribeToNewLinks(subscribeToMore);
+  _subscribeToNewVotes(subscribeToMore);
 
-          return (
-            <Fragment>
-              {linksToRender.map((link, index) => (
-                <Link
-                  key={link.id}
-                  link={link}
-                  index={index + pageIndex}
-                  updateStoreAfterVote={this._updateCacheAfterVote}
-                />
-              ))}
-              {isNewPage && (
-                <div className="flex ml4 mv3 gray">
-                  <div className="pointer mr2" onClick={this._previousPage}>
-                    Previous
-                  </div>
-                  <div className="pointer" onClick={() => this._nextPage(data)}>
-                    Next
-                  </div>
-                </div>
-              )}
-            </Fragment>
-          );
-        }}
-      </Query>
-    );
-  }
+  const linksToRender = _getLinksToRender(data);
+  const isNewPage = props.location.pathname.includes("new");
+  const pageIndex = props.match.params.page
+    ? (props.match.params.page - 1) * LINKS_PER_PAGE
+    : 0;
+
+  return (
+    <Fragment>
+      {linksToRender.map((link, index) => (
+        <Link
+          key={link.id}
+          link={link}
+          index={index + pageIndex}
+          updateStoreAfterVote={_updateCacheAfterVote}
+        />
+      ))}
+      {isNewPage && (
+        <div className="flex ml4 mv3 gray">
+          <div className="pointer mr2" onClick={_previousPage}>
+            Previous
+          </div>
+          <div className="pointer" onClick={() => _nextPage(data)}>
+            Next
+          </div>
+        </div>
+      )}
+    </Fragment>
+  );
 }
 
 export default LinkList;
